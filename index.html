@@ -3,235 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Duel Edition</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7"></script>
+    <title>Bookend Blitz: Duel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
         :root { --cyan: #00f2ff; --pink: #ff0077; --gold: #ffcc00; --bg: #0a0b10; }
-        body { 
-            background: var(--bg); 
-            color: white; 
-            font-family: 'Courier New', monospace; 
-            text-align: center; margin: 0; padding: 20px; overflow: hidden; 
-            user-select: none; -webkit-touch-callout: none;
-        }
-        .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; transition: opacity 0.3s; }
+        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; }
+        .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
         .hidden { display: none !important; }
-        .stats { display: flex; gap: 20px; color: var(--gold); font-weight: bold; margin-bottom: 10px; z-index: 20; }
-        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
+        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
-        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-size: 1rem; position: relative; font-weight: bold; }
-        .letter-btn:disabled { border-color: #333; color: #333; text-decoration: line-through; }
-        .x2 { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px; border-radius: 3px; font-weight: bold; }
-        .display { font-size: 3.5rem; font-weight: bold; margin: 15px 0; height: 60px; text-shadow: 0 0 10px white; }
-        .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-size: 1rem; }
+        .display { font-size: 3.5rem; font-weight: bold; margin: 15px 0; height: 60px; }
+        .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; }
         #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 1s linear; }
         input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; width: 80%; }
-        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin: 10px; width: 220px; border-radius: 5px; box-shadow: 0 0 10px var(--pink); }
-        #scorePop { position: fixed; top: 35%; left: 50%; transform: translateX(-50%); font-size: 6rem; font-weight: bold; pointer-events: none; opacity: 0; z-index: 100; }
-        .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
-        @keyframes scoreFloat { 0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); } 50% { opacity: 1; transform: translate(-50%, -50px) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -100px) scale(1); } }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
 
     <div id="scr-menu" class="screen">
-        <h1 style="color: var(--cyan); text-shadow: 0 0 10px var(--cyan);">BOOKEND BLITZ</h1>
-        <p style="color: var(--gold); font-size: 0.8rem;">TOURNAMENT EDITION</p>
-        <input type="text" id="matchIdInput" placeholder="MATCH ID (e.g. 1)">
-        <button class="btn-main" onclick="joinMatch()">JOIN DUEL</button>
+        <h1 style="color: var(--cyan);">BOOKEND BLITZ</h1>
+        <input type="text" id="matchIdInput" placeholder="MATCH ID">
+        <button class="btn-main" onclick="joinMatch()">START GAME</button>
+        <p id="errLog" style="color:red; font-size: 0.7rem; margin-top: 10px;"></p>
     </div>
 
     <div id="scr-wait" class="screen hidden">
-        <h2 style="color: var(--cyan);">WAITING FOR PLAYER...</h2>
-        <p>Match ID: <span id="displayMatchId" style="color: var(--gold);"></span></p>
+        <h2>WAITING FOR OPPONENT...</h2>
+        <p>ID: <span id="displayMatchId" style="color: var(--gold);"></span></p>
     </div>
 
     <div id="scr-game" class="screen hidden">
-        <div class="stats">SCORE: <span id="curScore">0</span> | RD: <span id="curRound">1</span>/15</div>
-        <div class="container">
-            <div id="msg">PICK A LETTER</div>
-            <div class="grid" id="grid"></div>
-            <div class="timer-bg"><div id="timerBar"></div></div>
-            <div class="display"><span id="l1" style="color: var(--cyan);">?</span> <span id="l2" style="color: var(--pink);">?</span></div>
-            <div id="inputBox" class="hidden"><input type="text" id="wordIn" placeholder="..." autocomplete="off"></div>
-        </div>
+        <div id="msg">PICK A LETTER</div>
+        <div class="grid" id="grid"></div>
+        <div class="timer-bg"><div id="timerBar"></div></div>
+        <div class="display"><span id="l1" style="color: var(--cyan);">?</span> <span id="l2" style="color: var(--pink);">?</span></div>
+        <div id="inputBox" class="hidden"><input type="text" id="wordIn" placeholder="..." autocomplete="off"></div>
     </div>
-
-    <div id="scr-end" class="screen hidden">
-        <h1 style="color: var(--gold);">MATCH OVER</h1>
-        <div style="font-size: 3rem;" id="finalScore">0</div>
-        <button class="btn-main" onclick="location.reload()">REBOOT</button>
-    </div>
-
-    <div id="scorePop"></div>
-    <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
         const SB_URL = 'https://daalqqpmmoxdwyvlexqds.supabase.co';
         const SB_KEY = 'sb_publishable_Izh14BTFS2N8LHmPAigfbw_fdQnzJ-P'; 
-        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-
-        let matchId = '', playerRole = '', myScore = 0, currentRound = 1, timer;
-        let matchActive = false, burnedUser = [];
-        const hards = ['X', 'Z', 'Q'];
-        const audio = document.getElementById('music');
-        let aCtx;
-
-        function initAudio() {
-            if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (aCtx.state === 'suspended') aCtx.resume();
-            audio.volume = 0.15; audio.play().catch(()=>{});
+        
+        // Error handling for the library initialization
+        let supabaseClient;
+        try {
+            supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+        } catch (e) {
+            document.getElementById('errLog').innerText = "Library Load Failed: " + e.message;
         }
 
-        function sfx(win) {
-            const o = aCtx.createOscillator(); const g = aCtx.createGain();
-            o.connect(g); g.connect(aCtx.destination);
-            o.frequency.setValueAtTime(win ? 600 : 100, aCtx.currentTime);
-            g.gain.setValueAtTime(0.2, aCtx.currentTime);
-            o.start(); o.stop(aCtx.currentTime + 0.2);
-        }
+        let matchId = '', playerRole = '', matchActive = false;
 
         async function joinMatch() {
-            initAudio();
             matchId = document.getElementById('matchIdInput').value.trim();
             if (!matchId) return;
 
+            // MOVE TO WAIT SCREEN IMMEDIATELY so we know the button works
             document.getElementById('displayMatchId').innerText = matchId;
             switchScreen('scr-wait');
 
-            // 1. Check if match exists
-            const { data: match } = await supabaseClient.from('matches').select('*').eq('match_id', matchId).single();
+            try {
+                // Check if match exists
+                let { data: match, error } = await supabaseClient.from('matches').select('*').eq('match_id', matchId).maybeSingle();
 
-            if (!match) {
-                playerRole = 'p1';
-                await supabaseClient.from('matches').insert([{ match_id: matchId, status: 'waiting', current_round: 1 }]);
-            } else {
-                playerRole = 'p2';
-                await supabaseClient.from('matches').update({ status: 'active' }).eq('match_id', matchId);
+                if (!match) {
+                    playerRole = 'p1';
+                    await supabaseClient.from('matches').insert([{ match_id: matchId, status: 'waiting', current_round: 1 }]);
+                } else {
+                    playerRole = 'p2';
+                    await supabaseClient.from('matches').update({ status: 'active' }).eq('match_id', matchId);
+                }
+
+                // Subscribe to changes
+                supabaseClient.channel(`match-${matchId}`)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `match_id=eq.${matchId}` }, payload => {
+                        handleUpdate(payload.new);
+                    }).subscribe();
+
+            } catch (e) {
+                alert("Database Error: " + e.message);
             }
-            
-            // 2. Start Real-time listener
-            supabaseClient.channel(`match-${matchId}`)
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `match_id=eq.${matchId}` }, payload => {
-                    handleUpdate(payload.new);
-                }).subscribe();
         }
 
         function handleUpdate(data) {
-            // Transition to Game
             if (data.status === 'active' && !matchActive) {
-                matchActive = true; switchScreen('scr-game'); setupGrid();
+                matchActive = true;
+                switchScreen('scr-game');
+                setupGrid();
             }
-
-            // Both picked letters?
-            if (data.p1_letter && data.p2_letter && document.getElementById('inputBox').classList.contains('hidden')) {
+            if (data.p1_letter && data.p2_letter) {
                 document.getElementById('l1').innerText = data.p1_letter;
                 document.getElementById('l2').innerText = data.p2_letter;
-                startRound(data.p1_letter, data.p2_letter);
-            }
-
-            // Both submitted words?
-            if (data.p1_word && data.p2_word) {
-                processResult(data);
+                document.getElementById('grid').classList.add('hidden');
+                document.getElementById('inputBox').classList.remove('hidden');
             }
         }
 
         function setupGrid() {
             const g = document.getElementById('grid'); g.innerHTML = "";
-            document.getElementById('grid').classList.remove('hidden');
-            document.getElementById('inputBox').classList.add('hidden');
-            document.getElementById('msg').innerText = "CHOOSE A BOOKEND";
-            
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l => {
                 const b = document.createElement('button'); b.className = 'letter-btn'; b.innerText = l;
-                if (burnedUser.includes(l)) b.disabled = true;
                 b.onclick = async () => {
                     const obj = {}; obj[`${playerRole}_letter`] = l;
-                    burnedUser.push(l);
                     await supabaseClient.from('matches').update(obj).eq('match_id', matchId);
-                    g.classList.add('hidden'); document.getElementById('msg').innerText = "WAITING...";
+                    g.classList.add('hidden');
                 };
-                if (hards.includes(l)) b.innerHTML += `<span class="x2">x2</span>`;
                 g.appendChild(b);
             });
         }
 
-        function startRound(p1L, p2L) {
-            document.getElementById('grid').classList.add('hidden');
-            document.getElementById('inputBox').classList.remove('hidden');
-            document.getElementById('wordIn').value = ""; document.getElementById('wordIn').focus();
-            let time = 15; clearInterval(timer);
-            timer = setInterval(() => {
-                time--; document.getElementById('timerBar').style.width = (time/15*100) + "%";
-                if (time <= 0) submitWord("MISS");
-            }, 1000);
-        }
-
-        async function submitWord(w) {
-            clearInterval(timer);
-            const obj = {}; obj[`${playerRole}_word`] = w || "MISS";
-            await supabaseClient.from('matches').update(obj).eq('match_id', matchId);
-            document.getElementById('inputBox').classList.add('hidden');
-            document.getElementById('msg').innerText = "SYNCING ARCHIVES...";
-        }
-
-        document.getElementById('wordIn').onkeydown = async (e) => {
-            if (e.key === "Enter") {
-                const w = e.target.value.toUpperCase().trim();
-                const l1 = document.getElementById('l1').innerText;
-                const l2 = document.getElementById('l2').innerText;
-                if (!((w.startsWith(l1) && w.endsWith(l2)) || (w.startsWith(l2) && w.endsWith(l1))) || w.length < 2) {
-                    sfx(false); return;
-                }
-                // Verify English word
-                try {
-                    const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
-                    if (r.ok) submitWord(w); else sfx(false);
-                } catch { submitWord(w); }
-            }
-        };
-
-        function processResult(data) {
-            const myWord = data[`${playerRole}_word`];
-            const multiplier = (hards.includes(data.p1_letter) || hards.includes(data.p2_letter)) ? 2 : 1;
-            
-            if (myWord && myWord !== "MISS") {
-                const base = myWord.length <= 4 ? 1 : myWord.length <= 7 ? 2 : 4;
-                const pts = base * multiplier;
-                myScore += pts; document.getElementById('curScore').innerText = myScore;
-                sfx(true);
-                const pop = document.getElementById('scorePop'); pop.innerText = "+" + pts;
-                pop.classList.add('pop-anim'); setTimeout(() => pop.classList.remove('pop-anim'), 800);
-                if (pts >= 4) confetti({ origin: { y: 0.7 } });
-            } else { sfx(false); }
-
-            if (playerRole === 'p1') {
-                setTimeout(async () => {
-                    if (data.current_round >= 15) {
-                        await supabaseClient.from('matches').update({ status: 'finished' }).eq('match_id', matchId);
-                    } else {
-                        await supabaseClient.from('matches').update({
-                            p1_letter: null, p2_letter: null, p1_word: null, p2_word: null,
-                            current_round: data.current_round + 1
-                        }).eq('match_id', matchId);
-                    }
-                }, 2000);
-            }
-
-            if (data.status === 'finished') {
-                switchScreen('scr-end'); document.getElementById('finalScore').innerText = myScore + " PTS";
-            } else {
-                currentRound = data.current_round + 1;
-                document.getElementById('curRound').innerText = currentRound;
-                setupGrid();
-            }
-        }
-
         function switchScreen(id) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-        }
-    </script>
-</body>
-</html>
+            document.
