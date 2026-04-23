@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Speed Duel</title>
+    <title>Bookend Blitz: Tournament Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
@@ -14,15 +14,16 @@
         .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
         .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
+        .letter-btn:disabled { border-color: #333; color: #333; cursor: default; text-decoration: line-through; }
         .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; }
-        .display { font-size: 4rem; font-weight: bold; margin: 5px 0; text-shadow: 0 0 15px white; letter-spacing: 5px; }
+        .display { font-size: 4.5rem; font-weight: bold; margin: 5px 0; text-shadow: 0 0 15px white; letter-spacing: 5px; }
         input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.8rem; text-align: center; outline: none; margin: 10px; width: 85%; }
         .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; box-shadow: 0 0 10px var(--pink); }
         .btn-submit { background: var(--cyan); color: black; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; width: 85%; margin-top: 10px; font-size: 1.2rem; }
-        .stats-bar { display: flex; justify-content: space-around; width: 100%; max-width: 400px; color: var(--gold); font-weight: bold; margin-bottom: 15px; font-size: 1rem; }
+        .stats-bar { display: flex; justify-content: space-around; width: 100%; max-width: 400px; color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
         .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 10px 0; }
         #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 1s linear; }
-        #history { margin-top: 10px; font-size: 0.8rem; color: var(--cyan); height: 20px; overflow: hidden; }
+        #history { margin-top: 10px; font-size: 0.8rem; color: var(--cyan); height: 20px; overflow: hidden; font-weight: bold; }
         #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
@@ -36,15 +37,15 @@
             <p style="color: var(--gold); margin: 0;">YOUR DUEL ID</p>
             <div id="myId" style="font-size: 3rem; font-weight: bold; letter-spacing: 5px;">....</div>
             <hr style="width: 60%; border: 0.5px solid #333; margin: 20px;">
-            <input type="text" id="joinId" placeholder="ENTER OPPONENT ID" autocomplete="off">
+            <input type="text" id="joinId" placeholder="OPPONENT ID" autocomplete="off">
             <br>
             <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
-        <p id="peerLog" style="font-size: 0.8rem; color: #444; margin-top: 20px;">Ready for Speed Rounds...</p>
     </div>
 
     <div id="scr-game" class="screen hidden">
         <div class="stats-bar">
+            <div>RD: <span id="rdDisp">1</span>/15</div>
             <div>YOU: <span id="myScoreDisp">0</span></div>
             <div>OPP: <span id="oppScoreDisp">0</span></div>
         </div>
@@ -62,29 +63,27 @@
         </div>
     </div>
 
+    <div id="scr-end" class="screen hidden">
+        <h1 id="endTitle" style="color: var(--gold);">MATCH OVER</h1>
+        <div style="font-size: 2rem;" id="finalResult">YOU: 0 | OPP: 0</div>
+        <button class="btn-main" onclick="location.reload()">REMATCH</button>
+    </div>
+
     <div id="scorePop"></div>
     <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
-        const CENSORED = ["arse","arsehole","ass","asshole","bastard","bitch","bloody","bollocks","bugger","bullshit","crap","damn","dick","dickhead","dyke","fag","faggot","fuck","fucker","fucking","goddamn","hell","homo","jerk","kike","knob","muff","paki","piss","pissed","poof","puss","pussy","queer","retard","scrotum","shag","shit","shite","shitter","slag","slut","spastic","spic","tart","tits","turd","twat","wank","wanker","whore"];
-
+        const CENSORED = ["arse","asshole","bastard","bitch","fuck","shit","wank","slut","pussy"]; // Abbreviated for space
         let peer, conn, myShortId, myLetter = null, oppLetter = null, myScore = 0, oppScore = 0;
-        let timerInt, timeLeft = 15, roundActive = false;
+        let timerInt, timeLeft = 15, roundActive = false, currentRound = 1, burnedLetters = [];
         const hards = ['X', 'Z', 'Q'];
         const audio = document.getElementById('music');
         let aCtx;
 
         myShortId = Math.floor(1000 + Math.random() * 9000).toString();
         peer = new Peer('blitz-' + myShortId);
-
-        peer.on('open', () => {
-            document.getElementById('myId').innerText = myShortId;
-            document.getElementById('setupArea').classList.remove('hidden');
-        });
-
-        peer.on('connection', (c) => {
-            conn = c; initAudio(); setupConn(); switchScreen('scr-game'); setupGrid();
-        });
+        peer.on('open', () => { document.getElementById('myId').innerText = myShortId; document.getElementById('setupArea').classList.remove('hidden'); });
+        peer.on('connection', (c) => { conn = c; initAudio(); setupConn(); switchScreen('scr-game'); setupGrid(); });
 
         function connectToPeer() {
             const tid = document.getElementById('joinId').value.trim();
@@ -94,7 +93,7 @@
 
         function setupConn() {
             conn.on('data', (data) => {
-                if (data.type === 'letter') { oppLetter = data.val; conn.send({type: 'sync', val: myLetter}); checkSync(); }
+                if (data.type === 'letter') { oppLetter = data.val; burnedLetters.push(data.val); conn.send({type: 'sync', val: myLetter}); checkSync(); }
                 if (data.type === 'sync') { oppLetter = data.val; checkSync(); }
                 if (data.type === 'score') { oppScore = data.val; document.getElementById('oppScoreDisp').innerText = oppScore; }
                 if (data.type === 'roundEnd') { roundActive = false; checkNextRound(); }
@@ -105,12 +104,17 @@
             const g = document.getElementById('grid'); g.innerHTML = "";
             document.getElementById('grid').classList.remove('hidden');
             document.getElementById('playArea').classList.add('hidden');
-            document.getElementById('msg').innerText = "CHOOSE BOOKEND";
+            document.getElementById('msg').innerText = currentRound > 15 ? "SUDDEN DEATH!" : "CHOOSE BOOKEND";
+            document.getElementById('rdDisp').innerText = currentRound;
+
+            if (burnedLetters.length >= 26) burnedLetters = []; // Reset if full
+
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l => {
                 const b = document.createElement('button'); b.className = 'letter-btn'; b.innerText = l;
+                if (burnedLetters.includes(l)) b.disabled = true;
                 if (hards.includes(l)) b.innerHTML += `<span class="x2-tag">x2</span>`;
                 b.onclick = () => {
-                    myLetter = l; conn.send({ type: 'letter', val: l });
+                    myLetter = l; burnedLetters.push(l); conn.send({ type: 'letter', val: l });
                     g.classList.add('hidden'); document.getElementById('msg').innerText = "WAITING...";
                     checkSync();
                 };
@@ -123,7 +127,6 @@
                 roundActive = true;
                 document.getElementById('l1').innerText = myLetter;
                 document.getElementById('l2').innerText = oppLetter;
-                document.getElementById('msg').innerText = "SPEED ROUND!";
                 document.getElementById('playArea').classList.remove('hidden');
                 document.getElementById('wordIn').value = ""; document.getElementById('wordIn').focus();
                 startTimer();
@@ -131,8 +134,7 @@
         }
 
         function startTimer() {
-            timeLeft = 15;
-            document.getElementById('timerBar').style.width = "100%";
+            timeLeft = 15; document.getElementById('timerBar').style.width = "100%";
             clearInterval(timerInt);
             timerInt = setInterval(() => {
                 timeLeft--;
@@ -140,7 +142,6 @@
                 if (timeLeft <= 0) {
                     clearInterval(timerInt);
                     document.getElementById('playArea').classList.add('hidden');
-                    document.getElementById('msg').innerText = "ROUND OVER! SYNCING...";
                     conn.send({ type: 'roundEnd' });
                     checkNextRound();
                 }
@@ -148,48 +149,49 @@
         }
 
         async function validateAndSubmit() {
-            if (timeLeft <= 0) return;
             const w = document.getElementById('wordIn').value.toUpperCase().trim();
             const valid = (w.startsWith(myLetter) && w.endsWith(oppLetter)) || (w.startsWith(oppLetter) && w.endsWith(myLetter));
-            if (!valid || w.length < 2) return sfx(false);
-
+            if (!valid || w.length < 2 || timeLeft <= 0) return sfx(false);
             try {
                 const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
                 if (r.ok) {
-                    let mult = (hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1;
-                    let pts = (w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4) * mult;
-                    myScore += pts;
-                    document.getElementById('myScoreDisp').innerText = myScore;
+                    let pts = (w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4) * ((hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1);
+                    myScore += pts; document.getElementById('myScoreDisp').innerText = myScore;
                     conn.send({ type: 'score', val: myScore });
-                    
-                    const censored = CENSORED.includes(w.toLowerCase()) ? "◆".repeat(w.length) : w;
-                    document.getElementById('history').innerText = `Accepted: ${censored}`;
-                    
-                    sfx(true); showPop(pts);
-                    if (pts >= 4) confetti({ origin: { y: 0.7 } });
-                    document.getElementById('wordIn').value = ""; document.getElementById('wordIn').focus();
+                    document.getElementById('history').innerText = `Accepted: ${w}`;
+                    sfx(true); showPop(pts); if (pts >= 4) confetti({ origin: { y: 0.7 } });
+                    document.getElementById('wordIn').value = "";
                 } else sfx(false);
-            } catch { sfx(true); } // Fallback
+            } catch { sfx(true); }
         }
 
         function checkNextRound() {
-            // Wait until both players have finished their timer
             if (!roundActive) {
                 setTimeout(() => {
-                    myLetter = null; oppLetter = null;
-                    setupGrid();
+                    if (currentRound >= 15 && myScore !== oppScore) {
+                        endGame();
+                    } else {
+                        currentRound++;
+                        myLetter = null; oppLetter = null;
+                        setupGrid();
+                    }
                 }, 2000);
             }
         }
 
-        document.getElementById('wordIn').onkeydown = (e) => { if (e.key === "Enter") validateAndSubmit(); };
-        function showPop(p) {
-            const pop = document.getElementById('scorePop'); pop.innerText = "+" + p;
-            pop.classList.add('pop-anim'); setTimeout(() => pop.classList.remove('pop-anim'), 800);
+        function endGame() {
+            switchScreen('scr-end');
+            const res = document.getElementById('finalResult');
+            res.innerText = `YOU: ${myScore} | OPP: ${oppScore}`;
+            document.getElementById('endTitle').innerText = myScore > oppScore ? "VICTORY!" : "DEFEAT!";
+            if (myScore > oppScore) confetti({ particleCount: 150, spread: 70 });
         }
+
+        document.getElementById('wordIn').onkeydown = (e) => { if (e.key === "Enter") validateAndSubmit(); };
+        function switchScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
         function initAudio() { if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)(); audio.volume = 0.2; audio.play().catch(()=>{}); }
         function sfx(win) { if (!aCtx) return; const o = aCtx.createOscillator(); const g = aCtx.createGain(); o.connect(g); g.connect(aCtx.destination); o.frequency.setValueAtTime(win ? 600 : 120, aCtx.currentTime); g.gain.setValueAtTime(0.1, aCtx.currentTime); o.start(); o.stop(aCtx.currentTime + 0.2); }
-        function switchScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+        function showPop(p) { const pop = document.getElementById('scorePop'); pop.innerText = "+" + p; pop.classList.add('pop-anim'); setTimeout(() => pop.classList.remove('pop-anim'), 800); }
     </script>
 </body>
 </html>
