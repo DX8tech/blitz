@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Duel</title>
+    <title>Bookend Blitz: Tournament</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
@@ -11,19 +11,15 @@
         body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; user-select: none; }
         .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
         .hidden { display: none !important; }
-        
         .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
-        
         .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
-        .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; box-shadow: 0 0 5px red; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
-
+        .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; }
         .display { font-size: 4.5rem; font-weight: bold; margin: 15px 0; text-shadow: 0 0 15px white; letter-spacing: 10px; }
         input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; margin: 10px; width: 80%; }
-        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 10px var(--pink); }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; }
         .stats { color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 1.2rem; }
-        
+        #history { margin-top: 15px; font-size: 0.8rem; color: #666; max-height: 60px; overflow-y: auto; }
         #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
@@ -35,13 +31,13 @@
         <h1 style="color: var(--cyan); text-shadow: 0 0 15px var(--cyan);">BOOKEND BLITZ</h1>
         <div id="setupArea" class="hidden">
             <p style="color: var(--gold); margin: 0;">YOUR ID</p>
-            <div id="myId" style="font-size: 3rem; font-weight: bold; letter-spacing: 5px; color: white;">....</div>
+            <div id="myId" style="font-size: 3rem; font-weight: bold; letter-spacing: 5px;">....</div>
             <hr style="width: 60%; border: 0.5px solid #333; margin: 20px;">
             <input type="text" id="joinId" placeholder="OPPONENT ID">
             <br>
             <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
-        <p id="peerLog" style="font-size: 0.8rem; color: #444; margin-top: 20px;">Initializing Peer Engine...</p>
+        <p id="peerLog" style="font-size: 0.8rem; color: #444; margin-top: 20px;">Connecting to Peer Network...</p>
     </div>
 
     <div id="scr-game" class="screen hidden">
@@ -52,6 +48,7 @@
             <div id="playArea" class="hidden">
                 <div class="display"><span id="l1" style="color: var(--cyan);">?</span><span id="l2" style="color: var(--pink);">?</span></div>
                 <input type="text" id="wordIn" placeholder="TYPE WORD..." autocomplete="off">
+                <div id="history"></div>
             </div>
         </div>
     </div>
@@ -60,43 +57,50 @@
     <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
+        // 50 Common Bad Words for filtering
+        const CENSORED = ["cock","penis","arse","arsehole","ass","asshole","bastard","bitch","bloody","bollocks","bugger","bullshit","crap","damn","dick","dickhead","dyke","fag","faggot","fuck","fucker","fucking","goddamn","hell","homo","jerk","kike","knob","muff","paki","piss","pissed","poof","puss","pussy","queer","retard","scrotum","shag","shit","shite","shitter","slag","slut","spastic","spic","tart","tits","turd","twat","wank","wanker","whore"];
+
         let peer, conn, myShortId, myLetter = null, oppLetter = null, myScore = 0;
         const hards = ['X', 'Z', 'Q'];
         const audio = document.getElementById('music');
         let aCtx;
 
-        // 1. Setup Peer
         myShortId = Math.floor(1000 + Math.random() * 9000).toString();
         peer = new Peer('blitz-' + myShortId);
 
         peer.on('open', () => {
             document.getElementById('myId').innerText = myShortId;
             document.getElementById('setupArea').classList.remove('hidden');
-            document.getElementById('peerLog').innerText = "System Online";
+            document.getElementById('peerLog').innerText = "System Ready";
         });
 
         peer.on('connection', (c) => {
             conn = c;
-            startDuel();
+            initAudio();
+            setupConn();
+            switchScreen('scr-game');
+            setupGrid();
         });
 
         function connectToPeer() {
             const tid = document.getElementById('joinId').value.trim();
             if (!tid) return;
-            conn = peer.connect('blitz-' + tid);
-            startDuel();
-        }
-
-        function startDuel() {
             initAudio();
-            switchScreen('scr-game');
+            conn = peer.connect('blitz-' + tid);
             setupConn();
+            switchScreen('scr-game');
             setupGrid();
         }
 
         function setupConn() {
             conn.on('data', (data) => {
                 if (data.type === 'letter') {
+                    oppLetter = data.val;
+                    // Send back a sync-check to ensure both are ready
+                    conn.send({type: 'sync-check', val: myLetter});
+                    checkSync();
+                }
+                if (data.type === 'sync-check') {
                     oppLetter = data.val;
                     checkSync();
                 }
@@ -135,6 +139,13 @@
             }
         }
 
+        function filterWord(w) {
+            if (CENSORED.includes(w.toLowerCase())) {
+                return "◆".repeat(w.length);
+            }
+            return w;
+        }
+
         document.getElementById('wordIn').onkeydown = async (e) => {
             if (e.key === "Enter") {
                 const w = e.target.value.toUpperCase().trim();
@@ -150,6 +161,10 @@
                         
                         myScore += final;
                         document.getElementById('curScore').innerText = myScore;
+                        
+                        const display = filterWord(w);
+                        document.getElementById('history').innerHTML = `Last Word: ${display}<br>` + document.getElementById('history').innerHTML;
+                        
                         sfx(true);
                         showPop(final);
                         if (final >= 4) confetti({ origin: { y: 0.7 } });
@@ -157,7 +172,7 @@
                         conn.send({ type: 'next' });
                         resetRound();
                     } else sfx(false);
-                } catch { /* Fallback */ }
+                } catch { /* Offline Fallback */ }
             }
         };
 
