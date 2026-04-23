@@ -3,102 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Peer Duel</title>
+    <title>Bookend Blitz: Duel</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
-        :root { --cyan: #00f2ff; --pink: #ff0077; --bg: #0a0b10; }
-        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; }
+        :root { --cyan: #00f2ff; --pink: #ff0077; --gold: #ffcc00; --bg: #0a0b10; }
+        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; user-select: none; }
         .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
         .hidden { display: none !important; }
-        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); }
+        
+        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
-        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; }
-        .display { font-size: 3.5rem; font-weight: bold; margin: 15px 0; }
-        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; }
-        input { background: none; border: 1px solid var(--cyan); color: white; padding: 10px; text-align: center; }
+        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; }
+        .display { font-size: 4rem; font-weight: bold; margin: 20px 0; text-shadow: 0 0 10px white; }
+        
+        input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; margin: 10px; }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 10px var(--pink); }
+        .stats { color: var(--gold); font-weight: bold; margin-bottom: 10px; }
+        
+        #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 6rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
+        .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
+        @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
     </style>
 </head>
 <body>
 
     <div id="scr-menu" class="screen">
-        <h1 style="color: var(--cyan);">BOOKEND BLITZ</h1>
-        <p style="font-size: 0.8rem; color: #666;">Status: <span id="peerStatus">Connecting...</span></p>
+        <h1 style="color: var(--cyan); text-shadow: 0 0 15px var(--cyan);">BOOKEND BLITZ</h1>
+        <div id="loadingPeer">Generating Secure ID...</div>
         <div id="setupArea" class="hidden">
+            <p style="color: var(--gold);">YOUR ID: <span id="myId" style="font-size: 2rem; letter-spacing: 5px;">....</span></p>
+            <hr style="width: 80%; border: 0.5px solid #333; margin: 20px;">
             <input type="text" id="joinId" placeholder="ENTER OPPONENT ID">
-            <button class="btn-main" onclick="connectToPeer()">CONNECT & PLAY</button>
-            <p style="margin-top: 20px;">YOUR ID: <b id="myId" style="color: var(--pink);">...</b></p>
+            <br>
+            <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
     </div>
 
     <div id="scr-game" class="screen hidden">
-        <div id="msg">PICK A LETTER</div>
-        <div class="grid" id="grid"></div>
-        <div id="playArea" class="hidden">
-            <div class="display"><span id="l1">?</span> <span id="l2">?</span></div>
-            <input type="text" id="wordIn" placeholder="Type word...">
+        <div class="stats">SCORE: <span id="curScore">0</span></div>
+        <div class="container">
+            <div id="msg">PICK A BOOKEND</div>
+            <div class="grid" id="grid"></div>
+            <div id="playArea" class="hidden">
+                <div class="display"><span id="l1" style="color: var(--cyan);">?</span> <span id="l2" style="color: var(--pink);">?</span></div>
+                <input type="text" id="wordIn" placeholder="TYPE WORD...">
+            </div>
         </div>
     </div>
 
-    <script>
-        let peer, conn, myId;
-        const gridLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    <div id="scorePop"></div>
+    <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
-        // 1. Initialize Peer
-        peer = new Peer();
+    <script>
+        let peer, conn, myShortId;
+        let myScore = 0, myLetter = null, oppLetter = null;
+        const audio = document.getElementById('music');
+        let aCtx;
+
+        // 1. Initialize Peer with a Random 4-Digit ID
+        myShortId = Math.floor(1000 + Math.random() * 9000).toString();
+        peer = new Peer('blitz-' + myShortId);
 
         peer.on('open', (id) => {
-            myId = id;
-            document.getElementById('myId').innerText = id;
-            document.getElementById('peerStatus').innerText = "Online";
+            document.getElementById('myId').innerText = myShortId;
+            document.getElementById('loadingPeer').classList.add('hidden');
             document.getElementById('setupArea').classList.remove('hidden');
         });
 
-        // 2. Handle Incoming Connection (Player 2)
+        // 2. Incoming connection
         peer.on('connection', (c) => {
             conn = c;
-            setupConnection();
+            initAudio();
+            setupConn();
             switchScreen('scr-game');
             setupGrid();
         });
 
-        // 3. Connect to Opponent (Player 1)
+        // 3. Outgoing connection
         function connectToPeer() {
             const targetId = document.getElementById('joinId').value.trim();
-            conn = peer.connect(targetId);
-            setupConnection();
+            if (!targetId) return;
+            initAudio();
+            conn = peer.connect('blitz-' + targetId);
+            setupConn();
             switchScreen('scr-game');
             setupGrid();
         }
 
-        function setupConnection() {
+        function setupConn() {
             conn.on('data', (data) => {
-                if (data.type === 'letter') handleLetterReceived(data.val);
+                if (data.type === 'letter') {
+                    oppLetter = data.val;
+                    checkBothPicked();
+                }
+                if (data.type === 'nextRound') resetForNext();
             });
         }
 
         function setupGrid() {
             const g = document.getElementById('grid'); g.innerHTML = "";
-            gridLetters.forEach(l => {
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l => {
                 const b = document.createElement('button'); b.className = 'letter-btn'; b.innerText = l;
                 b.onclick = () => {
+                    myLetter = l;
                     conn.send({ type: 'letter', val: l });
-                    handleLetterReceived(l);
                     g.classList.add('hidden');
+                    document.getElementById('msg').innerText = "WAITING...";
+                    checkBothPicked();
                 };
                 g.appendChild(b);
             });
         }
 
-        let receivedLetters = [];
-        function handleLetterReceived(l) {
-            receivedLetters.push(l);
-            if (receivedLetters.length === 2) {
-                document.getElementById('l1').innerText = receivedLetters[0];
-                document.getElementById('l2').innerText = receivedLetters[1];
-                document.getElementById('grid').classList.add('hidden');
+        function checkBothPicked() {
+            if (myLetter && oppLetter) {
+                document.getElementById('l1').innerText = myLetter;
+                document.getElementById('l2').innerText = oppLetter;
+                document.getElementById('msg').innerText = "TYPE!";
                 document.getElementById('playArea').classList.remove('hidden');
+                document.getElementById('wordIn').focus();
             }
+        }
+
+        document.getElementById('wordIn').onkeydown = async (e) => {
+            if (e.key === "Enter") {
+                const w = e.target.value.toUpperCase().trim();
+                const valid = (w.startsWith(myLetter) && w.endsWith(oppLetter)) || (w.startsWith(oppLetter) && w.endsWith(myLetter));
+                if (!valid || w.length < 2) return sfx(false);
+
+                try {
+                    const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
+                    if (r.ok) {
+                        let pts = w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4;
+                        scorePoints(pts);
+                        conn.send({ type: 'nextRound' });
+                        resetForNext();
+                    } else sfx(false);
+                } catch { /* Offline fallback */ }
+            }
+        };
+
+        function scorePoints(p) {
+            myScore += p;
+            document.getElementById('curScore').innerText = myScore;
+            sfx(true);
+            const pop = document.getElementById('scorePop'); pop.innerText = "+" + p;
+            pop.classList.add('pop-anim');
+            setTimeout(() => pop.classList.remove('pop-anim'), 800);
+            if (p >= 4) confetti({ origin: { y: 0.7 } });
+        }
+
+        function resetForNext() {
+            myLetter = null; oppLetter = null;
+            document.getElementById('playArea').classList.add('hidden');
+            document.getElementById('grid').classList.remove('hidden');
+            setupGrid();
+        }
+
+        function initAudio() {
+            if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audio.volume = 0.2; audio.play().catch(()=>{});
+        }
+
+        function sfx(win) {
+            if (!aCtx) return;
+            const o = aCtx.createOscillator(); const g = aCtx.createGain();
+            o.connect(g); g.connect(aCtx.destination);
+            o.frequency.setValueAtTime(win ? 600 : 100, aCtx.currentTime);
+            g.gain.setValueAtTime(0.1, aCtx.currentTime);
+            o.start(); o.stop(aCtx.currentTime + 0.2);
         }
 
         function switchScreen(id) {
