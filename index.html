@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Tournament</title>
+    <title>Bookend Blitz: Duel v10</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
@@ -11,23 +11,27 @@
         body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; user-select: none; }
         .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; overflow-y: auto; }
         .hidden { display: none !important; }
-        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
+        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 95%; max-width: 450px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
         .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
         .letter-btn:disabled { border-color: #333; color: #333; text-decoration: line-through; }
         .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; }
-        .display { font-size: 4.5rem; font-weight: bold; margin: 5px 0; text-shadow: 0 0 15px white; letter-spacing: 5px; }
+        .display { font-size: 4rem; font-weight: bold; margin: 5px 0; text-shadow: 0 0 15px white; letter-spacing: 5px; }
         input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.8rem; text-align: center; outline: none; margin: 10px; width: 85%; }
         .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; box-shadow: 0 0 10px var(--pink); }
         .btn-submit { background: var(--cyan); color: black; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; width: 85%; margin-top: 10px; font-size: 1.2rem; }
-        .stats-bar { display: flex; justify-content: space-around; width: 100%; max-width: 400px; color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
+        .stats-bar { display: flex; justify-content: space-around; width: 100%; max-width: 450px; color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
         .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 10px 0; }
         #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 1s linear; }
-        #history { margin-top: 10px; font-size: 0.8rem; color: var(--cyan); height: 20px; font-weight: bold; }
-        .summary-list { width: 90%; max-width: 400px; margin-top: 20px; text-align: left; max-height: 250px; overflow-y: auto; padding: 10px; border-top: 1px solid #333; }
-        .word-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #222; }
-        .badge { padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 0.7rem; color: black; }
-        .b-1 { background: white; } .b-2 { background: var(--cyan); } .b-4 { background: var(--gold); } .b-8 { background: #ff4500; color: white; }
+        
+        /* Final Comparison List Styles */
+        .summary-scroll { width: 95%; max-width: 450px; margin-top: 20px; text-align: left; max-height: 350px; overflow-y: auto; padding-right: 5px; }
+        .round-box { margin-bottom: 15px; border: 1px solid #333; border-radius: 8px; padding: 10px; background: rgba(255,255,255,0.02); }
+        .round-title { font-size: 0.8rem; color: var(--gold); border-bottom: 1px solid #333; margin-bottom: 5px; font-weight: bold; }
+        .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.75rem; }
+        .p-word { display: block; border-left: 2px solid var(--cyan); padding-left: 5px; margin-bottom: 3px; }
+        .o-word { display: block; border-left: 2px solid var(--pink); padding-left: 5px; margin-bottom: 3px; }
+        
         #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
@@ -39,9 +43,9 @@
         <h1 style="color: var(--cyan); text-shadow: 0 0 15px var(--cyan);">BOOKEND BLITZ</h1>
         <div id="setupArea" class="hidden">
             <p style="color: var(--gold); margin: 0;">YOUR DUEL ID</p>
-            <div id="myId" style="font-size: 3rem; font-weight: bold; letter-spacing: 5px;">....</div>
+            <div id="myId" style="font-size: 3.5rem; font-weight: bold; letter-spacing: 5px;">....</div>
             <hr style="width: 60%; border: 0.5px solid #333; margin: 20px;">
-            <input type="text" id="joinId" placeholder="ENTER OPPONENT ID" autocomplete="off">
+            <input type="text" id="joinId" placeholder="OPPONENT ID" autocomplete="off">
             <br>
             <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
@@ -62,7 +66,7 @@
                 <input type="text" id="wordIn" placeholder="..." autocomplete="off">
                 <br>
                 <button class="btn-submit" onclick="validateAndSubmit()">SUBMIT</button>
-                <div id="history"></div>
+                <div id="history" style="margin-top:10px; font-weight:bold; color:var(--cyan); font-size:0.8rem;"></div>
             </div>
         </div>
     </div>
@@ -70,7 +74,7 @@
     <div id="scr-end" class="screen hidden">
         <h1 id="endTitle" style="color: var(--gold); margin-bottom: 5px;">MATCH OVER</h1>
         <div id="finalResult" style="font-size: 1.5rem; color: white;"></div>
-        <div class="summary-list" id="summaryList"></div>
+        <div class="summary-scroll" id="summaryScroll"></div>
         <button class="btn-main" onclick="location.reload()">NEW DUEL</button>
     </div>
 
@@ -81,7 +85,7 @@
         const CENSORED = ["arse","asshole","bastard","bitch","fuck","shit","wank","slut","pussy"];
         let peer, conn, myShortId, myLetter = null, oppLetter = null, myScore = 0, oppScore = 0;
         let timerInt, timeLeft = 15, roundActive = false, currentRound = 1, burnedLetters = [];
-        let usedWordsInRound = []; let matchHistory = [];
+        let usedWords = []; let roundWords = { my: [], opp: [] }; let fullMatchLog = [];
         const hards = ['X', 'Z', 'Q'];
         const audio = document.getElementById('music');
         let aCtx;
@@ -102,6 +106,7 @@
                 if (data.type === 'letter') { oppLetter = data.val; burnedLetters.push(data.val); conn.send({type: 'sync', val: myLetter}); checkSync(); }
                 if (data.type === 'sync') { oppLetter = data.val; checkSync(); }
                 if (data.type === 'score') { oppScore = data.val; document.getElementById('oppScoreDisp').innerText = oppScore; }
+                if (data.type === 'wordSync') { roundWords.opp.push(data.val); }
                 if (data.type === 'roundEnd') { roundActive = false; checkNextRound(); }
             });
         }
@@ -112,7 +117,7 @@
             document.getElementById('playArea').classList.add('hidden');
             document.getElementById('msg').innerText = currentRound > 10 ? "SUDDEN DEATH!" : "CHOOSE BOOKEND";
             document.getElementById('rdDisp').innerText = currentRound;
-            usedWordsInRound = [];
+            roundWords = { my: [], opp: [] }; usedWords = [];
             if (burnedLetters.length >= 26) burnedLetters = [];
 
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l => {
@@ -158,23 +163,26 @@
             const w = document.getElementById('wordIn').value.toUpperCase().trim();
             const valid = (w.startsWith(myLetter) && w.endsWith(oppLetter)) || (w.startsWith(oppLetter) && w.endsWith(myLetter));
             
-            if (!valid || w.length < 2 || timeLeft <= 0 || usedWordsInRound.includes(w)) {
-                return sfx(false);
+            if (!valid || w.length < 2 || timeLeft <= 0 || usedWords.includes(w)) {
+                return sfx(false); // Play FAIL BUZZ
             }
 
             try {
                 const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
                 if (r.ok) {
-                    usedWordsInRound.push(w);
+                    usedWords.push(w);
                     let mult = (hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1;
-                    let base = w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4;
-                    let final = base * mult;
-                    myScore += final; document.getElementById('myScoreDisp').innerText = myScore;
+                    let pts = (w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4) * mult;
+                    myScore += pts; 
+                    document.getElementById('myScoreDisp').innerText = myScore;
                     conn.send({ type: 'score', val: myScore });
+                    
                     const censored = CENSORED.includes(w.toLowerCase()) ? "◆".repeat(w.length) : w;
-                    matchHistory.push({word: censored, pts: final});
+                    roundWords.my.push(censored);
+                    conn.send({ type: 'wordSync', val: censored });
+                    
                     document.getElementById('history').innerText = `Accepted: ${censored}`;
-                    sfx(true); showPop(final); if (final >= 4) confetti({ origin: { y: 0.7 } });
+                    sfx(true); showPop(pts); if (pts >= 4) confetti({ origin: { y: 0.7 } });
                     document.getElementById('wordIn').value = "";
                 } else sfx(false);
             } catch { sfx(true); }
@@ -182,10 +190,11 @@
 
         function checkNextRound() {
             if (!roundActive) {
+                fullMatchLog.push({ round: currentRound, letters: myLetter+oppLetter, myWords: [...roundWords.my], oppWords: [...roundWords.opp] });
                 setTimeout(() => {
                     if (currentRound >= 10 && myScore !== oppScore) endGame();
                     else { currentRound++; myLetter = null; oppLetter = null; setupGrid(); }
-                }, 1500);
+                }, 2000);
             }
         }
 
@@ -193,11 +202,20 @@
             switchScreen('scr-end');
             document.getElementById('finalResult').innerText = `YOU: ${myScore} | OPP: ${oppScore}`;
             document.getElementById('endTitle').innerText = myScore > oppScore ? "VICTORY!" : "DEFEAT!";
-            const list = document.getElementById('summaryList');
-            list.innerHTML = "<b>YOUR WORDS:</b><br>";
-            matchHistory.forEach(item => {
-                list.innerHTML += `<div class="word-item"><span>${item.word}</span><span class="badge b-${item.pts}">${item.pts} PTS</span></div>`;
+            
+            const scroll = document.getElementById('summaryScroll');
+            scroll.innerHTML = "";
+            fullMatchLog.forEach(rd => {
+                let rdBox = document.createElement('div');
+                rdBox.className = 'round-box';
+                rdBox.innerHTML = `<div class="round-title">ROUND ${rd.round} (${rd.letters})</div>
+                    <div class="comp-grid">
+                        <div><b>YOU</b><br>${rd.myWords.map(w => `<span class="p-word">${w}</span>`).join('')}</div>
+                        <div><b>OPP</b><br>${rd.oppWords.map(w => `<span class="o-word">${w}</span>`).join('')}</div>
+                    </div>`;
+                scroll.appendChild(rdBox);
             });
+
             if (myScore > oppScore) {
                 let duration = 3 * 1000; let end = Date.now() + duration;
                 (function frame() {
@@ -211,7 +229,15 @@
         document.getElementById('wordIn').onkeydown = (e) => { if (e.key === "Enter") validateAndSubmit(); };
         function switchScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
         function initAudio() { if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)(); audio.volume = 0.2; audio.play().catch(()=>{}); }
-        function sfx(win) { if (!aCtx) return; const o = aCtx.createOscillator(); const g = aCtx.createGain(); o.connect(g); g.connect(aCtx.destination); o.frequency.setValueAtTime(win ? 600 : 120, aCtx.currentTime); g.gain.setValueAtTime(0.1, aCtx.currentTime); o.start(); o.stop(aCtx.currentTime + 0.2); }
+        function sfx(win) { 
+            if (!aCtx) return;
+            const o = aCtx.createOscillator(); const g = aCtx.createGain();
+            o.connect(g); g.connect(aCtx.destination);
+            // FAIL BUZZ: low frequency (100Hz), SUCCESS: 600Hz
+            o.frequency.setValueAtTime(win ? 600 : 100, aCtx.currentTime);
+            g.gain.setValueAtTime(0.1, aCtx.currentTime);
+            o.start(); o.stop(aCtx.currentTime + 0.3);
+        }
         function showPop(p) { const pop = document.getElementById('scorePop'); pop.innerText = "+" + p; pop.classList.add('pop-anim'); setTimeout(() => pop.classList.remove('pop-anim'), 800); }
     </script>
 </body>
