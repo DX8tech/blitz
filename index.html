@@ -88,9 +88,12 @@
     <audio id="music" loop preload="auto" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
-        const SB_URL = 'https://daalqqpmmoxdwyvlexqds.supabase.co';
-        const SB_KEY = 'sb_publishable_Izh14BTFS2N8LHmPAigfbw_fdQnzJ-P';
-        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7"></script>
+    <script>
+    const SB_URL = 'https://daalqqpmmoxdwyvlexqds.supabase.co';
+    const SB_KEY = 'sb_publishable_Izh14BTFS2N8LHmPAigfbw_fdQnzJ-P'; 
+
+    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
         
         let matchId = '', playerRole = '', myScore = 0, currentRound = 1, timer, matchActive = false;
         let burnedUser = [];
@@ -118,23 +121,61 @@
             o.start(); o.stop(aCtx.currentTime + 0.3);
         }
 
-        async function joinMatch() {
-            initAudio();
-            matchId = document.getElementById('matchIdInput').value.trim();
-            if (!matchId) return;
-            document.getElementById('displayMatchId').innerText = matchId;
-            switchScreen('scr-wait');
+// --- CONFIGURATION ---
+const SB_URL = 'https://daalqqpmmoxdwyvlexqds.supabase.co';
+// Use the 'sb_publishable' key you copied
+const SB_KEY = 'sb_publishable_Izh14BTFS2N8LHmPAigfbw_fdQnzJ-P'; 
 
-            const { data: match } = await supabaseClient.from('matches').select('*').eq('match_id', matchId).single();
-            if (!match) {
-                playerRole = 'p1';
-                await supabaseClient.from('matches').insert([{ match_id: matchId, status: 'waiting', current_round: 1 }]);
-            } else {
-                playerRole = 'p2';
-                await supabaseClient.from('matches').update({ status: 'active' }).eq('match_id', matchId);
-            }
-            subscribe();
+// THE FIX: Modern initialization for the new Supabase Keys
+const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
+async function joinMatch() {
+    initAudio(); // Starts music
+    matchId = document.getElementById('matchIdInput').value.trim();
+    if (!matchId) return;
+
+    switchScreen('scr-wait');
+
+    try {
+        // 1. Try to read from the table
+        const { data, error } = await supabaseClient
+            .from('matches')
+            .select('match_id')
+            .eq('match_id', matchId);
+
+        if (error) {
+            // This alert will pop up on your phone if there's a connection issue
+            alert("Connection Error: " + error.message);
+            return;
         }
+
+        if (data.length === 0) {
+            // I am the first player, create the entry
+            playerRole = 'p1';
+            const { error: insErr } = await supabaseClient
+                .from('matches')
+                .insert([{ 
+                    match_id: matchId, 
+                    status: 'waiting', 
+                    current_round: 1 
+                }]);
+            
+            if (insErr) alert("Database Write Error: " + insErr.message);
+        } else {
+            // Someone is already there, join them
+            playerRole = 'p2';
+            await supabaseClient
+                .from('matches')
+                .update({ status: 'active' })
+                .eq('match_id', matchId);
+        }
+        
+        subscribe(); // Start real-time sync
+
+    } catch (err) {
+        alert("Unexpected Error: " + err.message);
+    }
+}
 
         function subscribe() {
             supabaseClient.channel(`match-${matchId}`)
