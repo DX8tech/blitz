@@ -2,103 +2,92 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Duel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookend Blitz</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
-        :root { --cyan: #00f2ff; --pink: #ff0077; --gold: #ffcc00; --bg: #0a0b10; }
-        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; }
-        .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        :root { --cyan: #00f2ff; --pink: #ff0077; --bg: #0a0b10; }
+        body { background: var(--bg); color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .screen { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; }
         .hidden { display: none !important; }
-        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); }
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
-        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-size: 1rem; }
-        .display { font-size: 3.5rem; font-weight: bold; margin: 15px 0; height: 60px; }
-        .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; }
-        #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 1s linear; }
-        input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; width: 80%; }
-        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; margin: 10px; border-radius: 5px; }
+        .btn { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 20px; }
+        input { background: none; border: 1px solid var(--cyan); color: white; padding: 10px; text-align: center; font-size: 1.2rem; }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 20px; }
+        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="scr-menu" class="screen">
         <h1 style="color: var(--cyan);">BOOKEND BLITZ</h1>
-        <input type="text" id="matchIdInput" placeholder="MATCH ID">
-        <button class="btn-main" onclick="joinMatch()">START GAME</button>
-        <p id="errLog" style="color:red; font-size: 0.7rem; margin-top: 10px;"></p>
+        <input type="text" id="matchIdInput" placeholder="ENTER ID (e.g. 1)">
+        <button class="btn" onclick="joinMatch()">START DUEL</button>
     </div>
 
     <div id="scr-wait" class="screen hidden">
-        <h2>WAITING FOR OPPONENT...</h2>
-        <p>ID: <span id="displayMatchId" style="color: var(--gold);"></span></p>
+        <h2 style="color: var(--pink);">WAITING FOR OPPONENT...</h2>
+        <p>Match ID: <span id="displayId"></span></p>
     </div>
 
     <div id="scr-game" class="screen hidden">
-        <div id="msg">PICK A LETTER</div>
+        <h3 id="msg">PICK A LETTER</h3>
         <div class="grid" id="grid"></div>
-        <div class="timer-bg"><div id="timerBar"></div></div>
-        <div class="display"><span id="l1" style="color: var(--cyan);">?</span> <span id="l2" style="color: var(--pink);">?</span></div>
-        <div id="inputBox" class="hidden"><input type="text" id="wordIn" placeholder="..." autocomplete="off"></div>
+        <div id="playArea" class="hidden">
+            <h1 style="font-size: 4rem;"><span id="l1">?</span> <span id="l2">?</span></h1>
+            <input type="text" id="wordIn" placeholder="Type word..." style="width: 80%;">
+        </div>
     </div>
 
     <script>
         const SB_URL = 'https://daalqqpmmoxdwyvlexqds.supabase.co';
-        const SB_KEY = 'sb_publishable_Izh14BTFS2N8LHmPAigfbw_fdQnzJ-P'; 
-        
-        // Error handling for the library initialization
-        let supabaseClient;
-        try {
-            supabaseClient = supabase.createClient(SB_URL, SB_KEY);
-        } catch (e) {
-            document.getElementById('errLog').innerText = "Library Load Failed: " + e.message;
-        }
+        const SB_KEY = 'sb_publishable_Izh14BTFS2N8LHmPAigfbw_fdQnzJ-P';
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
-        let matchId = '', playerRole = '', matchActive = false;
+        let matchId = '', playerRole = '';
 
         async function joinMatch() {
             matchId = document.getElementById('matchIdInput').value.trim();
             if (!matchId) return;
 
-            // MOVE TO WAIT SCREEN IMMEDIATELY so we know the button works
-            document.getElementById('displayMatchId').innerText = matchId;
-            switchScreen('scr-wait');
+            // FORCE SCREEN SWITCH
+            document.getElementById('displayId').innerText = matchId;
+            document.getElementById('scr-menu').classList.add('hidden');
+            document.getElementById('scr-wait').classList.remove('hidden');
 
             try {
-                // Check if match exists
-                let { data: match, error } = await supabaseClient.from('matches').select('*').eq('match_id', matchId).maybeSingle();
+                // Check database
+                const { data: match } = await supabaseClient.from('matches').select('*').eq('match_id', matchId).maybeSingle();
 
                 if (!match) {
                     playerRole = 'p1';
-                    await supabaseClient.from('matches').insert([{ match_id: matchId, status: 'waiting', current_round: 1 }]);
+                    await supabaseClient.from('matches').insert([{ match_id: matchId, status: 'waiting' }]);
                 } else {
                     playerRole = 'p2';
                     await supabaseClient.from('matches').update({ status: 'active' }).eq('match_id', matchId);
                 }
 
-                // Subscribe to changes
+                // Subscribe
                 supabaseClient.channel(`match-${matchId}`)
                     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `match_id=eq.${matchId}` }, payload => {
                         handleUpdate(payload.new);
                     }).subscribe();
 
-            } catch (e) {
-                alert("Database Error: " + e.message);
+            } catch (err) {
+                console.error(err);
             }
         }
 
         function handleUpdate(data) {
-            if (data.status === 'active' && !matchActive) {
-                matchActive = true;
-                switchScreen('scr-game');
+            if (data.status === 'active') {
+                document.getElementById('scr-wait').classList.add('hidden');
+                document.getElementById('scr-game').classList.remove('hidden');
                 setupGrid();
             }
             if (data.p1_letter && data.p2_letter) {
                 document.getElementById('l1').innerText = data.p1_letter;
                 document.getElementById('l2').innerText = data.p2_letter;
                 document.getElementById('grid').classList.add('hidden');
-                document.getElementById('inputBox').classList.remove('hidden');
+                document.getElementById('playArea').classList.remove('hidden');
             }
         }
 
@@ -110,10 +99,11 @@
                     const obj = {}; obj[`${playerRole}_letter`] = l;
                     await supabaseClient.from('matches').update(obj).eq('match_id', matchId);
                     g.classList.add('hidden');
+                    document.getElementById('msg').innerText = "WAITING FOR OTHER PLAYER...";
                 };
                 g.appendChild(b);
             });
         }
-
-        function switchScreen(id) {
-            document.
+    </script>
+</body>
+</html>
