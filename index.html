@@ -15,11 +15,12 @@
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
         .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
         .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; }
-        .display { font-size: 4.5rem; font-weight: bold; margin: 15px 0; text-shadow: 0 0 15px white; letter-spacing: 10px; }
-        input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; margin: 10px; width: 80%; }
-        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        .display { font-size: 4rem; font-weight: bold; margin: 10px 0; text-shadow: 0 0 15px white; letter-spacing: 5px; }
+        input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.8rem; text-align: center; outline: none; margin: 10px; width: 85%; }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; box-shadow: 0 0 10px var(--pink); }
+        .btn-submit { background: var(--cyan); color: black; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; width: 85%; margin-top: 10px; font-size: 1.2rem; }
         .stats { color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 1.2rem; }
-        #history { margin-top: 15px; font-size: 0.8rem; color: #666; max-height: 60px; overflow-y: auto; }
+        #history { margin-top: 15px; font-size: 0.9rem; color: var(--cyan); font-weight: bold; }
         #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
@@ -30,14 +31,14 @@
     <div id="scr-menu" class="screen">
         <h1 style="color: var(--cyan); text-shadow: 0 0 15px var(--cyan);">BOOKEND BLITZ</h1>
         <div id="setupArea" class="hidden">
-            <p style="color: var(--gold); margin: 0;">YOUR ID</p>
+            <p style="color: var(--gold); margin: 0;">YOUR DUEL ID</p>
             <div id="myId" style="font-size: 3rem; font-weight: bold; letter-spacing: 5px;">....</div>
             <hr style="width: 60%; border: 0.5px solid #333; margin: 20px;">
-            <input type="text" id="joinId" placeholder="OPPONENT ID">
+            <input type="text" id="joinId" placeholder="ENTER OPPONENT ID" autocomplete="off">
             <br>
             <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
-        <p id="peerLog" style="font-size: 0.8rem; color: #444; margin-top: 20px;">Connecting to Peer Network...</p>
+        <p id="peerLog" style="font-size: 0.8rem; color: #444; margin-top: 20px;">Syncing Peer Engine...</p>
     </div>
 
     <div id="scr-game" class="screen hidden">
@@ -47,7 +48,9 @@
             <div class="grid" id="grid"></div>
             <div id="playArea" class="hidden">
                 <div class="display"><span id="l1" style="color: var(--cyan);">?</span><span id="l2" style="color: var(--pink);">?</span></div>
-                <input type="text" id="wordIn" placeholder="TYPE WORD..." autocomplete="off">
+                <input type="text" id="wordIn" placeholder="..." autocomplete="off">
+                <br>
+                <button class="btn-submit" onclick="validateAndSubmit()">SUBMIT WORD</button>
                 <div id="history"></div>
             </div>
         </div>
@@ -57,8 +60,7 @@
     <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
-        // 50 Common Bad Words for filtering
-        const CENSORED = ["cock","penis","arse","arsehole","ass","asshole","bastard","bitch","bloody","bollocks","bugger","bullshit","crap","damn","dick","dickhead","dyke","fag","faggot","fuck","fucker","fucking","goddamn","hell","homo","jerk","kike","knob","muff","paki","piss","pissed","poof","puss","pussy","queer","retard","scrotum","shag","shit","shite","shitter","slag","slut","spastic","spic","tart","tits","turd","twat","wank","wanker","whore"];
+        const CENSORED = ["arse","arsehole","ass","asshole","bastard","bitch","bloody","bollocks","bugger","bullshit","crap","damn","dick","dickhead","dyke","fag","faggot","fuck","fucker","fucking","goddamn","hell","homo","jerk","kike","knob","muff","paki","piss","pissed","poof","puss","pussy","queer","retard","scrotum","shag","shit","shite","shitter","slag","slut","spastic","spic","tart","tits","turd","twat","wank","wanker","whore"];
 
         let peer, conn, myShortId, myLetter = null, oppLetter = null, myScore = 0;
         const hards = ['X', 'Z', 'Q'];
@@ -71,7 +73,7 @@
         peer.on('open', () => {
             document.getElementById('myId').innerText = myShortId;
             document.getElementById('setupArea').classList.remove('hidden');
-            document.getElementById('peerLog').innerText = "System Ready";
+            document.getElementById('peerLog').innerText = "System Online";
         });
 
         peer.on('connection', (c) => {
@@ -96,7 +98,6 @@
             conn.on('data', (data) => {
                 if (data.type === 'letter') {
                     oppLetter = data.val;
-                    // Send back a sync-check to ensure both are ready
                     conn.send({type: 'sync-check', val: myLetter});
                     checkSync();
                 }
@@ -121,7 +122,7 @@
                     myLetter = l;
                     conn.send({ type: 'letter', val: l });
                     g.classList.add('hidden');
-                    document.getElementById('msg').innerText = "WAITING FOR OPPONENT...";
+                    document.getElementById('msg').innerText = "WAITING...";
                     checkSync();
                 };
                 g.appendChild(b);
@@ -139,41 +140,42 @@
             }
         }
 
-        function filterWord(w) {
-            if (CENSORED.includes(w.toLowerCase())) {
-                return "◆".repeat(w.length);
+        async function validateAndSubmit() {
+            const w = document.getElementById('wordIn').value.toUpperCase().trim();
+            const validLetters = (w.startsWith(myLetter) && w.endsWith(oppLetter)) || (w.startsWith(oppLetter) && w.endsWith(myLetter));
+            
+            if (!validLetters || w.length < 2) return sfx(false);
+
+            try {
+                const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
+                if (r.ok) {
+                    let mult = (hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1;
+                    let base = w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4;
+                    let final = base * mult;
+                    
+                    myScore += final;
+                    document.getElementById('curScore').innerText = myScore;
+                    
+                    const censored = CENSORED.includes(w.toLowerCase()) ? "◆".repeat(w.length) : w;
+                    document.getElementById('history').innerText = `Last: ${censored}`;
+                    
+                    sfx(true);
+                    showPop(final);
+                    if (final >= 4) confetti({ origin: { y: 0.7 } });
+                    
+                    conn.send({ type: 'next' });
+                    resetRound();
+                } else {
+                    sfx(false);
+                }
+            } catch {
+                conn.send({ type: 'next' });
+                resetRound();
             }
-            return w;
         }
 
-        document.getElementById('wordIn').onkeydown = async (e) => {
-            if (e.key === "Enter") {
-                const w = e.target.value.toUpperCase().trim();
-                const valid = (w.startsWith(myLetter) && w.endsWith(oppLetter)) || (w.startsWith(oppLetter) && w.endsWith(myLetter));
-                if (!valid || w.length < 2) return sfx(false);
-
-                try {
-                    const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
-                    if (r.ok) {
-                        let mult = (hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1;
-                        let base = w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4;
-                        let final = base * mult;
-                        
-                        myScore += final;
-                        document.getElementById('curScore').innerText = myScore;
-                        
-                        const display = filterWord(w);
-                        document.getElementById('history').innerHTML = `Last Word: ${display}<br>` + document.getElementById('history').innerHTML;
-                        
-                        sfx(true);
-                        showPop(final);
-                        if (final >= 4) confetti({ origin: { y: 0.7 } });
-                        
-                        conn.send({ type: 'next' });
-                        resetRound();
-                    } else sfx(false);
-                } catch { /* Offline Fallback */ }
-            }
+        document.getElementById('wordIn').onkeydown = (e) => {
+            if (e.key === "Enter") validateAndSubmit();
         };
 
         function resetRound() {
