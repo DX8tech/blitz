@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: v10.1</title>
+    <title>Bookend Blitz: Tournament v11</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
@@ -11,7 +11,9 @@
         body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; user-select: none; }
         .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; overflow-y: auto; }
         .hidden { display: none !important; }
-        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 95%; max-width: 450px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
+        .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 95%; max-width: 450px; background: rgba(255,255,255,0.05); transition: transform 0.1s; }
+        .shake { animation: shake 0.3s; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
         .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
         .letter-btn:disabled { border-color: #333; color: #333; text-decoration: line-through; }
@@ -21,14 +23,14 @@
         .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; }
         .btn-submit { background: var(--cyan); color: black; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; width: 85%; margin-top: 10px; font-size: 1.2rem; }
         .stats-bar { display: flex; justify-content: space-around; width: 100%; max-width: 450px; color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
-        .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden; margin: 10px 0; }
-        #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 1s linear; }
+        .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 10px 0; }
+        #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 0.1s linear; }
         .summary-scroll { width: 95%; max-width: 450px; margin-top: 20px; text-align: left; max-height: 350px; overflow-y: auto; }
-        .round-box { margin-bottom: 12px; border: 1px solid #333; border-radius: 8px; padding: 10px; background: rgba(255,255,255,0.02); }
-        .round-title { font-size: 0.8rem; color: var(--gold); border-bottom: 1px solid #333; margin-bottom: 5px; font-weight: bold; }
+        .round-box { margin-bottom: 15px; border: 1px solid #333; border-radius: 8px; padding: 10px; background: rgba(255,255,255,0.02); }
+        .round-title { font-size: 0.8rem; color: var(--gold); border-bottom: 1px solid #333; margin-bottom: 5px; }
         .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.75rem; }
-        .p-word { border-left: 2px solid var(--cyan); padding-left: 5px; margin-bottom: 3px; display: block; }
-        .o-word { border-left: 2px solid var(--pink); padding-left: 5px; margin-bottom: 3px; display: block; }
+        .p-word { border-left: 2px solid var(--cyan); padding-left: 5px; margin-bottom: 2px; display: block; }
+        .o-word { border-left: 2px solid var(--pink); padding-left: 5px; margin-bottom: 2px; display: block; }
         #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
@@ -39,11 +41,10 @@
     <div id="scr-menu" class="screen">
         <h1 style="color: var(--cyan); text-shadow: 0 0 15px var(--cyan);">BOOKEND BLITZ</h1>
         <div id="setupArea" class="hidden">
-            <p style="color: var(--gold); margin: 0;">YOUR DUEL ID</p>
+            <p style="color: var(--gold); margin: 0;">DUEL ID</p>
             <div id="myId" style="font-size: 3.5rem; font-weight: bold; letter-spacing: 5px;">....</div>
             <hr style="width: 60%; border: 0.5px solid #333; margin: 20px;">
-            <input type="text" id="joinId" placeholder="OPPONENT ID" autocomplete="off">
-            <br>
+            <input type="text" id="joinId" placeholder="ENTER ID" autocomplete="off">
             <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
     </div>
@@ -54,14 +55,13 @@
             <div>YOU: <span id="myScoreDisp">0</span></div>
             <div>OPP: <span id="oppScoreDisp">0</span></div>
         </div>
-        <div class="container">
-            <div id="msg" style="color: var(--cyan); font-weight: bold;">CHOOSE BOOKEND</div>
+        <div class="container" id="gameCont">
+            <div id="msg" style="color: var(--cyan); font-weight: bold;">PICK LETTER</div>
             <div class="grid" id="grid"></div>
             <div id="playArea" class="hidden">
                 <div class="timer-bg"><div id="timerBar"></div></div>
                 <div class="display"><span id="l1" style="color: var(--cyan);">?</span><span id="l2" style="color: var(--pink);">?</span></div>
                 <input type="text" id="wordIn" placeholder="..." autocomplete="off">
-                <br>
                 <button class="btn-submit" onclick="validateAndSubmit()">SUBMIT</button>
                 <div id="history" style="margin-top:10px; font-weight:bold; color:var(--cyan); font-size:0.8rem;"></div>
             </div>
@@ -72,7 +72,7 @@
         <h1 id="endTitle" style="color: var(--gold);">MATCH OVER</h1>
         <div id="finalResult" style="font-size: 1.5rem; color: white;"></div>
         <div class="summary-scroll" id="summaryScroll"></div>
-        <button class="btn-main" onclick="location.reload()">NEW DUEL</button>
+        <button class="btn-main" onclick="location.reload()">REMATCH</button>
     </div>
 
     <div id="scorePop"></div>
@@ -90,12 +90,12 @@
         myShortId = Math.floor(1000 + Math.random() * 9000).toString();
         peer = new Peer('blitz-' + myShortId);
         peer.on('open', () => { document.getElementById('myId').innerText = myShortId; document.getElementById('setupArea').classList.remove('hidden'); });
-        peer.on('connection', (c) => { conn = c; setupConn(); switchScreen('scr-game'); setupGrid(); });
+        peer.on('connection', (c) => { conn = c; initAudio(); setupConn(); switchScreen('scr-game'); setupGrid(); });
 
         function connectToPeer() {
             const tid = document.getElementById('joinId').value.trim();
             if (!tid) return;
-            conn = peer.connect('blitz-' + tid); setupConn(); switchScreen('scr-game'); setupGrid();
+            initAudio(); conn = peer.connect('blitz-' + tid); setupConn(); switchScreen('scr-game'); setupGrid();
         }
 
         function setupConn() {
@@ -104,7 +104,7 @@
                 if (data.type === 'sync') { oppLetter = data.val; checkSync(); }
                 if (data.type === 'score') { oppScore = data.val; document.getElementById('oppScoreDisp').innerText = oppScore; }
                 if (data.type === 'wordSync') { roundWords.opp.push(data.val); }
-                if (data.type === 'roundEnd') { roundActive = false; checkNextRound(); }
+                if (data.type === 'roundEnd') { finishRound(); }
             });
         }
 
@@ -113,7 +113,7 @@
             const g = document.getElementById('grid'); g.innerHTML = "";
             document.getElementById('grid').classList.remove('hidden');
             document.getElementById('playArea').classList.add('hidden');
-            document.getElementById('msg').innerText = currentRound > 10 ? "SUDDEN DEATH!" : "CHOOSE BOOKEND";
+            document.getElementById('msg').innerText = currentRound > 10 ? "SUDDEN DEATH!" : "PICK LETTER";
             document.getElementById('rdDisp').innerText = currentRound;
             roundWords = { my: [], opp: [] }; usedWords = [];
             
@@ -142,101 +142,86 @@
         }
 
         function startTimer() {
-            timeLeft = 15; document.getElementById('timerBar').style.width = "100%";
+            timeLeft = 15;
             clearInterval(timerInt);
             timerInt = setInterval(() => {
-                timeLeft--;
+                timeLeft -= 0.1;
                 document.getElementById('timerBar').style.width = (timeLeft/15*100) + "%";
                 if (timeLeft <= 0) {
                     clearInterval(timerInt);
-                    document.getElementById('playArea').classList.add('hidden');
-                    // Lock round log immediately
-                    fullMatchLog.push({ round: currentRound, letters: myLetter+oppLetter, myWords: [...roundWords.my], oppWords: [...roundWords.opp] });
                     conn.send({ type: 'roundEnd' });
-                    checkNextRound();
+                    finishRound();
                 }
-            }, 1000);
+            }, 100);
+        }
+
+        function finishRound() {
+            if (!roundActive) return;
+            roundActive = false;
+            fullMatchLog.push({ round: currentRound, letters: myLetter+oppLetter, myWords: [...roundWords.my], oppWords: [...roundWords.opp] });
+            document.getElementById('playArea').classList.add('hidden');
+            setTimeout(() => {
+                if (currentRound >= 10 && myScore !== oppScore) endGame();
+                else { currentRound++; myLetter = null; oppLetter = null; setupGrid(); }
+            }, 1500);
         }
 
         async function validateAndSubmit() {
-            initAudio(); // Force audio context wake-up on every click
+            initAudio();
             const w = document.getElementById('wordIn').value.toUpperCase().trim();
+            const isBad = CENSORED.some(bad => w.toLowerCase().includes(bad));
             const valid = (w.startsWith(myLetter) && w.endsWith(oppLetter)) || (w.startsWith(oppLetter) && w.endsWith(myLetter));
             
             if (!valid || w.length < 2 || timeLeft <= 0 || usedWords.includes(w)) {
-                return sfx(false);
+                sfx(false); shake(); return;
             }
 
             try {
                 const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
                 if (r.ok) {
                     usedWords.push(w);
-                    let mult = (hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1;
-                    let pts = (w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4) * mult;
+                    let pts = (w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4) * (hards.some(h => [myLetter, oppLetter].includes(h)) ? 2 : 1);
                     myScore += pts; 
                     document.getElementById('myScoreDisp').innerText = myScore;
                     conn.send({ type: 'score', val: myScore });
                     
-                    const censored = CENSORED.includes(w.toLowerCase()) ? "◆".repeat(w.length) : w;
-                    roundWords.my.push(censored);
-                    conn.send({ type: 'wordSync', val: censored });
+                    const display = isBad ? "◆".repeat(w.length) : w;
+                    roundWords.my.push(display);
+                    conn.send({ type: 'wordSync', val: display });
                     
-                    document.getElementById('history').innerText = `Accepted: ${censored}`;
+                    document.getElementById('history').innerText = `OK: ${display}`;
                     sfx(true); showPop(pts); if (pts >= 4) confetti({ origin: { y: 0.7 } });
                     document.getElementById('wordIn').value = "";
-                } else sfx(false);
+                } else { sfx(false); shake(); }
             } catch { sfx(true); }
         }
 
-        function checkNextRound() {
-            if (!roundActive) {
-                setTimeout(() => {
-                    if (currentRound >= 10 && myScore !== oppScore) endGame();
-                    else { currentRound++; myLetter = null; oppLetter = null; setupGrid(); }
-                }, 1500);
-            }
+        function shake() {
+            const c = document.getElementById('gameCont');
+            c.classList.add('shake');
+            setTimeout(() => c.classList.remove('shake'), 300);
         }
 
         function endGame() {
             switchScreen('scr-end');
             document.getElementById('finalResult').innerText = `YOU: ${myScore} | OPP: ${oppScore}`;
             document.getElementById('endTitle').innerText = myScore > oppScore ? "VICTORY!" : "DEFEAT!";
-            
             const scroll = document.getElementById('summaryScroll');
             scroll.innerHTML = "";
-            // Sort log to ensure Round 1 is at top
-            fullMatchLog.sort((a,b) => a.round - b.round).forEach(rd => {
-                let rdBox = document.createElement('div');
-                rdBox.className = 'round-box';
-                rdBox.innerHTML = `<div class="round-title">ROUND ${rd.round} (${rd.letters})</div>
-                    <div class="comp-grid">
-                        <div><b>YOU</b><br>${rd.myWords.map(w => `<span class="p-word">${w}</span>`).join('')}</div>
-                        <div><b>OPP</b><br>${rd.oppWords.map(w => `<span class="o-word">${w}</span>`).join('')}</div>
-                    </div>`;
-                scroll.appendChild(rdBox);
+            fullMatchLog.sort((a,b)=>a.round-b.round).forEach(rd => {
+                scroll.innerHTML += `<div class="round-box"><div class="round-title">ROUND ${rd.round} (${rd.letters})</div>
+                    <div class="comp-grid"><div><b>YOU</b><br>${rd.myWords.map(w=>`<span class="p-word">${w}</span>`).join('')}</div>
+                    <div><b>OPP</b><br>${rd.oppWords.map(w=>`<span class="o-word">${w}</span>`).join('')}</div></div></div>`;
             });
-
-            if (myScore > oppScore) {
-                let duration = 3 * 1000; let end = Date.now() + duration;
-                (function frame() {
-                    confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
-                    confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
-                    if (Date.now() < end) requestAnimationFrame(frame);
-                }());
-            }
+            if (myScore > oppScore) confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         }
 
         document.getElementById('wordIn').onkeydown = (e) => { if (e.key === "Enter") validateAndSubmit(); };
         function switchScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
-        
         function initAudio() { 
-            if (!aCtx) {
-                aCtx = new (window.AudioContext || window.webkitAudioContext)();
-                audio.volume = 0.2; audio.play().catch(()=>{});
-            }
+            if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (aCtx.state === 'suspended') aCtx.resume();
         }
-
         function sfx(win) { 
             if (!aCtx) return;
             const o = aCtx.createOscillator(); const g = aCtx.createGain();
