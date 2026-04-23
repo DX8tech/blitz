@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bookend Blitz: Tournament v11.1</title>
+    <title>Bookend Blitz: v11.2</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
@@ -11,30 +11,25 @@
         body { background: var(--bg); color: white; font-family: 'Courier New', monospace; text-align: center; margin: 0; padding: 20px; overflow: hidden; user-select: none; }
         .screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; overflow-y: auto; }
         .hidden { display: none !important; }
-        
-        /* Audio Unlock Overlay */
-        #audio-unlock { z-index: 100; background: rgba(10,11,16,0.95); }
-        
+        #audio-unlock { z-index: 100; background: var(--bg); }
         .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 95%; max-width: 450px; background: rgba(255,255,255,0.05); transition: transform 0.1s; }
         .shake { animation: shake 0.3s; }
         @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
-        
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
-        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
+        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; font-size: 1.1rem; }
         .letter-btn:disabled { border-color: #333; color: #333; text-decoration: line-through; }
-        
+        /* The Pulsing X2 Tag */
+        .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; box-shadow: 0 0 5px red; animation: pulse 1s infinite; z-index: 5; }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
         .display { font-size: 4rem; font-weight: bold; margin: 5px 0; text-shadow: 0 0 15px white; letter-spacing: 5px; }
         input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.8rem; text-align: center; outline: none; margin: 10px; width: 85%; }
-        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; box-shadow: 0 0 10px var(--pink); }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; }
         .btn-submit { background: var(--cyan); color: black; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; width: 85%; margin-top: 10px; font-size: 1.2rem; }
-        
         .stats-bar { display: flex; justify-content: space-around; width: 100%; max-width: 450px; color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 0.9rem; }
         .timer-bg { width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 10px 0; }
         #timerBar { width: 100%; height: 100%; background: var(--cyan); transition: width 0.1s linear; }
-        
         .round-box { margin-bottom: 15px; border: 1px solid #333; border-radius: 8px; padding: 10px; background: rgba(255,255,255,0.02); }
         .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.75rem; text-align: left; }
-        
         #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
@@ -43,9 +38,9 @@
 <body>
 
     <div id="audio-unlock" class="screen">
-        <h1 style="color: var(--cyan);">BOOKEND BLITZ</h1>
+        <h1 style="color: var(--cyan); text-shadow: 0 0 10px var(--cyan);">BOOKEND BLITZ</h1>
         <button class="btn-main" style="padding: 25px 50px; font-size: 1.5rem;" onclick="unlockAll()">CLICK TO PLAY</button>
-        <p style="margin-top: 20px; font-size: 0.8rem; color: #666;">(Enables Sound & Music)</p>
+        <p style="margin-top: 20px; font-size: 0.8rem; color: #444;">(Enables SFX & Music)</p>
     </div>
 
     <div id="scr-menu" class="screen hidden">
@@ -89,7 +84,7 @@
     <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
-        const CENSORED = ["arse","asshole","bastard","bitch","fuck","shit","wank","slut","pussy"];
+       const CENSORED = ["arse","asshole","bastard","bitch","fuck","shit","wank","slut","pussy","bollocks","bugger","choad","clit","cock","coon","crap","cum","dago","damn","dick","dildo","dyke","fag","feck","felching","flange","goddamn","hell","homo","jerk","jizz","knob","muff","nigger","omg","paki","piss","poof","prick","punani","pussy","queer","retard","rimming","scrotum","shag","shite","shitter","skank","slag","spastic","spic","twat","tosser","turd","uha","vagina","wanker","whore","wtf","bloody","cunt","nonce","pissed","minger","munter","bellend","tit","nonce","clunger"];
         let peer, conn, myShortId, myLetter = null, oppLetter = null, myScore = 0, oppScore = 0;
         let timerInt, timeLeft = 15, roundActive = false, currentRound = 1, burnedLetters = [];
         let usedWords = []; let roundWords = { my: [], opp: [] }; let fullMatchLog = [];
@@ -97,12 +92,10 @@
         const audio = document.getElementById('music');
         let aCtx;
 
-        // Force Audio Initialization
         function unlockAll() {
             if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (aCtx.state === 'suspended') aCtx.resume();
-            audio.volume = 0.2;
-            audio.play().catch(e => console.log("Music play blocked"));
+            audio.volume = 0.2; audio.play().catch(e => {});
             document.getElementById('audio-unlock').classList.add('hidden');
             document.getElementById('scr-menu').classList.remove('hidden');
         }
@@ -140,6 +133,7 @@
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l => {
                 const b = document.createElement('button'); b.className = 'letter-btn'; b.innerText = l;
                 if (burnedLetters.includes(l)) b.disabled = true;
+                if (hards.includes(l)) b.innerHTML += `<span class="x2-tag">x2</span>`;
                 b.onclick = () => {
                     myLetter = l; burnedLetters.push(l); conn.send({ type: 'letter', val: l });
                     g.classList.add('hidden'); document.getElementById('msg').innerText = "WAITING...";
@@ -202,11 +196,9 @@
                     myScore += pts; 
                     document.getElementById('myScoreDisp').innerText = myScore;
                     conn.send({ type: 'score', val: myScore });
-                    
                     const display = isBad ? "◆".repeat(w.length) : w;
                     roundWords.my.push(display);
                     conn.send({ type: 'wordSync', val: display });
-                    
                     document.getElementById('history').innerText = `OK: ${display}`;
                     sfx(true); showPop(pts); if (pts >= 4) confetti({ origin: { y: 0.7 } });
                     document.getElementById('wordIn').value = "";
@@ -225,7 +217,7 @@
             const o = aCtx.createOscillator(); const g = aCtx.createGain();
             o.connect(g); g.connect(aCtx.destination);
             o.frequency.setValueAtTime(win ? 600 : 100, aCtx.currentTime);
-            g.gain.setValueAtTime(0.3, aCtx.currentTime); // Volume up
+            g.gain.setValueAtTime(0.3, aCtx.currentTime);
             o.start(); o.stop(aCtx.currentTime + 0.3);
         }
 
