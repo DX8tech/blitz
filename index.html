@@ -14,14 +14,17 @@
         
         .container { border: 2px solid var(--pink); border-radius: 15px; padding: 15px; width: 90%; max-width: 400px; background: rgba(255,255,255,0.05); box-shadow: 0 0 15px var(--pink); }
         .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
-        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; }
-        .display { font-size: 4rem; font-weight: bold; margin: 20px 0; text-shadow: 0 0 10px white; }
         
-        input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; margin: 10px; }
+        .letter-btn { background: none; border: 1px solid var(--cyan); color: var(--cyan); padding: 12px 0; cursor: pointer; font-weight: bold; position: relative; }
+        .x2-tag { position: absolute; top: -5px; right: -5px; background: red; color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 3px; box-shadow: 0 0 5px red; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+
+        .display { font-size: 4.5rem; font-weight: bold; margin: 15px 0; text-shadow: 0 0 15px white; letter-spacing: 10px; }
+        input { background: none; border: none; border-bottom: 2px solid var(--pink); color: white; font-size: 1.5rem; text-align: center; outline: none; margin: 10px; width: 80%; }
         .btn-main { background: var(--pink); color: white; border: none; padding: 15px 30px; font-weight: bold; cursor: pointer; border-radius: 5px; box-shadow: 0 0 10px var(--pink); }
-        .stats { color: var(--gold); font-weight: bold; margin-bottom: 10px; }
+        .stats { color: var(--gold); font-weight: bold; margin-bottom: 10px; font-size: 1.2rem; }
         
-        #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 6rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
+        #scorePop { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 7rem; font-weight: bold; opacity: 0; z-index: 100; pointer-events: none; }
         .pop-anim { animation: scoreFloat 0.8s ease-out forwards; }
         @keyframes scoreFloat { 0% { opacity:0; transform:translate(-50%,0); } 50% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-100px); } }
     </style>
@@ -30,24 +33,25 @@
 
     <div id="scr-menu" class="screen">
         <h1 style="color: var(--cyan); text-shadow: 0 0 15px var(--cyan);">BOOKEND BLITZ</h1>
-        <div id="loadingPeer">Generating Secure ID...</div>
         <div id="setupArea" class="hidden">
-            <p style="color: var(--gold);">YOUR ID: <span id="myId" style="font-size: 2rem; letter-spacing: 5px;">....</span></p>
-            <hr style="width: 80%; border: 0.5px solid #333; margin: 20px;">
-            <input type="text" id="joinId" placeholder="ENTER OPPONENT ID">
+            <p style="color: var(--gold); margin: 0;">YOUR ID</p>
+            <div id="myId" style="font-size: 3rem; font-weight: bold; letter-spacing: 5px; color: white;">....</div>
+            <hr style="width: 60%; border: 0.5px solid #333; margin: 20px;">
+            <input type="text" id="joinId" placeholder="OPPONENT ID">
             <br>
             <button class="btn-main" onclick="connectToPeer()">START DUEL</button>
         </div>
+        <p id="peerLog" style="font-size: 0.8rem; color: #444; margin-top: 20px;">Initializing Peer Engine...</p>
     </div>
 
     <div id="scr-game" class="screen hidden">
         <div class="stats">SCORE: <span id="curScore">0</span></div>
         <div class="container">
-            <div id="msg">PICK A BOOKEND</div>
+            <div id="msg" style="color: var(--cyan); font-weight: bold;">CHOOSE BOOKEND</div>
             <div class="grid" id="grid"></div>
             <div id="playArea" class="hidden">
-                <div class="display"><span id="l1" style="color: var(--cyan);">?</span> <span id="l2" style="color: var(--pink);">?</span></div>
-                <input type="text" id="wordIn" placeholder="TYPE WORD...">
+                <div class="display"><span id="l1" style="color: var(--cyan);">?</span><span id="l2" style="color: var(--pink);">?</span></div>
+                <input type="text" id="wordIn" placeholder="TYPE WORD..." autocomplete="off">
             </div>
         </div>
     </div>
@@ -56,38 +60,37 @@
     <audio id="music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"></audio>
 
     <script>
-        let peer, conn, myShortId;
-        let myScore = 0, myLetter = null, oppLetter = null;
+        let peer, conn, myShortId, myLetter = null, oppLetter = null, myScore = 0;
+        const hards = ['X', 'Z', 'Q'];
         const audio = document.getElementById('music');
         let aCtx;
 
-        // 1. Initialize Peer with a Random 4-Digit ID
+        // 1. Setup Peer
         myShortId = Math.floor(1000 + Math.random() * 9000).toString();
         peer = new Peer('blitz-' + myShortId);
 
-        peer.on('open', (id) => {
+        peer.on('open', () => {
             document.getElementById('myId').innerText = myShortId;
-            document.getElementById('loadingPeer').classList.add('hidden');
             document.getElementById('setupArea').classList.remove('hidden');
+            document.getElementById('peerLog').innerText = "System Online";
         });
 
-        // 2. Incoming connection
         peer.on('connection', (c) => {
             conn = c;
-            initAudio();
-            setupConn();
-            switchScreen('scr-game');
-            setupGrid();
+            startDuel();
         });
 
-        // 3. Outgoing connection
         function connectToPeer() {
-            const targetId = document.getElementById('joinId').value.trim();
-            if (!targetId) return;
+            const tid = document.getElementById('joinId').value.trim();
+            if (!tid) return;
+            conn = peer.connect('blitz-' + tid);
+            startDuel();
+        }
+
+        function startDuel() {
             initAudio();
-            conn = peer.connect('blitz-' + targetId);
-            setupConn();
             switchScreen('scr-game');
+            setupConn();
             setupGrid();
         }
 
@@ -95,33 +98,39 @@
             conn.on('data', (data) => {
                 if (data.type === 'letter') {
                     oppLetter = data.val;
-                    checkBothPicked();
+                    checkSync();
                 }
-                if (data.type === 'nextRound') resetForNext();
+                if (data.type === 'next') resetRound();
             });
         }
 
         function setupGrid() {
             const g = document.getElementById('grid'); g.innerHTML = "";
+            document.getElementById('grid').classList.remove('hidden');
+            document.getElementById('playArea').classList.add('hidden');
+            document.getElementById('msg').innerText = "CHOOSE BOOKEND";
+
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(l => {
                 const b = document.createElement('button'); b.className = 'letter-btn'; b.innerText = l;
+                if (hards.includes(l)) b.innerHTML += `<span class="x2-tag">x2</span>`;
                 b.onclick = () => {
                     myLetter = l;
                     conn.send({ type: 'letter', val: l });
                     g.classList.add('hidden');
-                    document.getElementById('msg').innerText = "WAITING...";
-                    checkBothPicked();
+                    document.getElementById('msg').innerText = "WAITING FOR OPPONENT...";
+                    checkSync();
                 };
                 g.appendChild(b);
             });
         }
 
-        function checkBothPicked() {
+        function checkSync() {
             if (myLetter && oppLetter) {
                 document.getElementById('l1').innerText = myLetter;
                 document.getElementById('l2').innerText = oppLetter;
-                document.getElementById('msg').innerText = "TYPE!";
+                document.getElementById('msg').innerText = "GO!";
                 document.getElementById('playArea').classList.remove('hidden');
+                document.getElementById('wordIn').value = "";
                 document.getElementById('wordIn').focus();
             }
         }
@@ -135,30 +144,33 @@
                 try {
                     const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${w.toLowerCase()}`);
                     if (r.ok) {
-                        let pts = w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4;
-                        scorePoints(pts);
-                        conn.send({ type: 'nextRound' });
-                        resetForNext();
+                        let mult = (hards.includes(myLetter) || hards.includes(oppLetter)) ? 2 : 1;
+                        let base = w.length <= 4 ? 1 : w.length <= 7 ? 2 : 4;
+                        let final = base * mult;
+                        
+                        myScore += final;
+                        document.getElementById('curScore').innerText = myScore;
+                        sfx(true);
+                        showPop(final);
+                        if (final >= 4) confetti({ origin: { y: 0.7 } });
+                        
+                        conn.send({ type: 'next' });
+                        resetRound();
                     } else sfx(false);
-                } catch { /* Offline fallback */ }
+                } catch { /* Fallback */ }
             }
         };
 
-        function scorePoints(p) {
-            myScore += p;
-            document.getElementById('curScore').innerText = myScore;
-            sfx(true);
-            const pop = document.getElementById('scorePop'); pop.innerText = "+" + p;
-            pop.classList.add('pop-anim');
-            setTimeout(() => pop.classList.remove('pop-anim'), 800);
-            if (p >= 4) confetti({ origin: { y: 0.7 } });
+        function resetRound() {
+            myLetter = null; oppLetter = null;
+            setupGrid();
         }
 
-        function resetForNext() {
-            myLetter = null; oppLetter = null;
-            document.getElementById('playArea').classList.add('hidden');
-            document.getElementById('grid').classList.remove('hidden');
-            setupGrid();
+        function showPop(p) {
+            const pop = document.getElementById('scorePop'); pop.innerText = "+" + p;
+            pop.style.color = p >= 4 ? 'var(--gold)' : 'white';
+            pop.classList.add('pop-anim');
+            setTimeout(() => pop.classList.remove('pop-anim'), 800);
         }
 
         function initAudio() {
@@ -170,7 +182,7 @@
             if (!aCtx) return;
             const o = aCtx.createOscillator(); const g = aCtx.createGain();
             o.connect(g); g.connect(aCtx.destination);
-            o.frequency.setValueAtTime(win ? 600 : 100, aCtx.currentTime);
+            o.frequency.setValueAtTime(win ? 600 : 120, aCtx.currentTime);
             g.gain.setValueAtTime(0.1, aCtx.currentTime);
             o.start(); o.stop(aCtx.currentTime + 0.2);
         }
